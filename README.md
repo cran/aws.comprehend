@@ -4,37 +4,20 @@
 
 To use the package, you will need an AWS account and to enter your credentials into R. Your keypair can be generated on the [IAM Management Console](https://aws.amazon.com/) under the heading *Access Keys*. Note that you only have access to your secret key once. After it is generated, you need to save it in a secure location. New keypairs can be generated at any time if yours has been lost, stolen, or forgotten. The [**aws.iam** package](https://github.com/cloudyr/aws.iam) profiles tools for working with IAM, including creating roles, users, groups, and credentials programmatically; it is not needed to *use* IAM credentials.
 
-By default, all **cloudyr** packages for AWS services allow the use of credentials specified in a number of ways, beginning with:
-
- 1. User-supplied values passed directly to functions.
- 2. Environment variables, which can alternatively be set on the command line prior to starting R or via an `Renviron.site` or `.Renviron` file, which are used to set environment variables in R during startup (see `? Startup`). Or they can be set within R:
- 
-    ```R
-    Sys.setenv("AWS_ACCESS_KEY_ID" = "mykey",
-               "AWS_SECRET_ACCESS_KEY" = "mysecretkey",
-               "AWS_DEFAULT_REGION" = "us-east-1",
-               "AWS_SESSION_TOKEN" = "mytoken")
-    ```
- 3. If R is running an EC2 instance, the role profile credentials provided by [**aws.ec2metadata**](https://cran.r-project.org/package=aws.ec2metadata).
- 4. Profiles saved in a `/.aws/credentials` "dot file" in the current working directory. The `"default" profile is assumed if none is specified.
- 5. [A centralized `~/.aws/credentials` file](https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standardized-Way-to-Manage-Credentials-in-the-AWS-SDKs), containing credentials for multiple accounts. The `"default" profile is assumed if none is specified.
-
-Profiles stored locally or in a centralized location (e.g., `~/.aws/credentials`) can also be invoked via:
+A detailed description of how credentials can be specified is provided at: https://github.com/cloudyr/aws.signature/. The easiest way is to simply set environment variables on the command line prior to starting R or via an `Renviron.site` or `.Renviron` file, which are used to set environment variables in R during startup (see `? Startup`). They can be also set within R:
 
 ```R
-# use your 'default' account credentials
-aws.signature::use_credentials()
-
-# use an alternative credentials profile
-aws.signature::use_credentials(profile = "bob")
+Sys.setenv("AWS_ACCESS_KEY_ID" = "mykey",
+           "AWS_SECRET_ACCESS_KEY" = "mysecretkey",
+           "AWS_DEFAULT_REGION" = "us-east-1",
+           "AWS_SESSION_TOKEN" = "mytoken")
 ```
-
-Temporary session tokens are stored in environment variable `AWS_SESSION_TOKEN` (and will be stored there by the `use_credentials()` function). The [aws.iam package](https://github.com/cloudyr/aws.iam/) provides an R interface to IAM roles and the generation of temporary session tokens via the security token service (STS).
-
 
 ## Code Examples
 
 Here are some simple code examples:
+
+
 
 
 ```r
@@ -46,18 +29,18 @@ detect_language("This is a test sentence in English")
 
 ```
 ##   LanguageCode     Score
-## 1           en 0.9945121
+## 1           en 0.9729235
 ```
 
 ```r
 # multi-lingual language detection
-detect_language("A: ¡Hola! ¿Como está, usted?\nB: Ça va bien. Merci. Et toi?")
+detect_language("A: ¡Hola! ¿Como está, usted? B: Bien, merci. Et toi?")
 ```
 
 ```
 ##   LanguageCode     Score
-## 1           fr 0.6712779
-## 2           pt 0.2771675
+## 1           fr 0.7126021
+## 2           es 0.2452095
 ```
 
 ```r
@@ -66,8 +49,8 @@ detect_sentiment("I have never been happier. This is the best day ever.")
 ```
 
 ```
-##   Index Sentiment       Mixed    Negative    Neutral  Positive
-## 1     1  POSITIVE 0.002856119 0.003094881 0.03672606 0.9573229
+##   Index Sentiment       Mixed     Negative      Neutral  Positive
+## 1     1  POSITIVE 1.21042e-06 5.316024e-05 0.0003428663 0.9996029
 ```
 
 ```r
@@ -78,8 +61,8 @@ detect_entities(txt)
 
 ```
 ##   Index BeginOffset EndOffset     Score   Text         Type
-## 1     0           0         6 0.9960732 Amazon ORGANIZATION
-## 2     1           0         4 0.9994556   Jeff       PERSON
+## 1     0           0         6 0.9999992 Amazon ORGANIZATION
+## 2     1           0         4 1.0000000   Jeff       PERSON
 ```
 
 ```r
@@ -88,11 +71,54 @@ detect_phrases(txt)
 ```
 
 ```
-##   Index BeginOffset EndOffset     Score         Text
-## 1     0           0         6 0.9884282       Amazon
-## 2     1          16        28 0.9975396 web services
-## 3     0           0         4 0.9950518         Jeff
-## 4     1           8        20 0.9918150 their leader
+##   Index BeginOffset EndOffset Score         Text
+## 1     0           0         6     1       Amazon
+## 2     1          16        28     1 web services
+## 3     0           0         4     1         Jeff
+## 4     1           8        20     1 their leader
+```
+
+```r
+# syntax analysis
+detect_syntax("The quick fox jumps over the lazy dog.")
+```
+
+```
+##   Index BeginOffset EndOffset PartOfSpeech.Score PartOfSpeech.Tag  Text TokenId
+## 1     1           0         3          0.9999670              DET   The       1
+## 2     1           4         9          0.9966556              ADJ quick       2
+## 3     1          10        13          0.9957780             NOUN   fox       3
+## 4     1          14        19          0.8895551             VERB jumps       4
+## 5     1          20        24          0.9910401              ADP  over       5
+## 6     1          25        28          0.9999968              DET   the       6
+## 7     1          29        33          0.9885939              ADJ  lazy       7
+## 8     1          34        37          0.9999415             NOUN   dog       8
+## 9     1          37        38          0.9999982            PUNCT     .       9
+```
+
+```r
+# medical entity detection
+medical_txt <- "Pt is 40yo mother, highschool teacher. HPI : Sleeping trouble on present dosage of Clonidine."
+detect_medical_entities(medical_txt)
+```
+
+```
+##   Index BeginOffset                     Category EndOffset Id     Score               Text                    Traits         Type
+## 1     1           6 PROTECTED_HEALTH_INFORMATION        10  0 0.9982511               40yo                      NULL          AGE
+## 2     1          19 PROTECTED_HEALTH_INFORMATION        37  1 0.4113526 highschool teacher                      NULL   PROFESSION
+## 3     1          45            MEDICAL_CONDITION        61  3 0.7587468   Sleeping trouble SYMPTOM, 0.52603405714035      DX_NAME
+## 4     1          83                   MEDICATION        92  2 0.9932888          Clonidine                      NULL GENERIC_NAME
+```
+
+```r
+# Protected Health Information (PHI) detection
+detect_medical_phi(medical_txt)
+```
+
+```
+##   Index BeginOffset                     Category EndOffset Id     Score               Text Traits       Type
+## 1     1           6 PROTECTED_HEALTH_INFORMATION        10  0 0.9982511               40yo   NULL        AGE
+## 2     1          19 PROTECTED_HEALTH_INFORMATION        37  1 0.4113526 highschool teacher   NULL PROFESSION
 ```
 
 All of the functions accept either a single character string or a character vector.
